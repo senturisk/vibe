@@ -36,6 +36,7 @@ export interface DeviceSettings {
   audioOutputId: string;
   videoResolution: '720p' | '1080p' | '480p';
   isMirrorMode: boolean;
+  theme: 'light' | 'dark';
 }
 
 export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';

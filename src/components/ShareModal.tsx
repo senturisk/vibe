@@ -56,21 +56,21 @@ export const ShareModal: React.FC<ShareModalProps> = ({ roomId, isOpen, onClose 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md bg-[#FEF7FF] rounded-3xl p-6 sm:p-8 shadow-2xl border border-[#EADDFF] flex flex-col items-center text-center">
+      <div className="relative w-full max-w-md bg-[#FEF7FF] dark:bg-[#1D1B20] text-[#1D1B20] dark:text-[#E6E0E9] rounded-3xl p-6 sm:p-8 shadow-2xl border border-[#EADDFF] dark:border-[#49454F]/70 flex flex-col items-center text-center">
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-5 right-5 p-2 rounded-full text-[#49454F] hover:bg-[#F3EDF7] transition-colors"
+          className="absolute top-5 right-5 p-2 rounded-full text-[#49454F] dark:text-[#CAC4D0] hover:bg-[#F3EDF7] dark:hover:bg-[#2B2831] transition-colors"
         >
           <X className="w-5 h-5" />
         </button>
 
         {/* Modal Header */}
-        <div className="w-12 h-12 rounded-2xl bg-[#EADDFF] flex items-center justify-center text-[#21005D] mb-3">
+        <div className="w-12 h-12 rounded-2xl bg-[#EADDFF] dark:bg-[#4F378B] flex items-center justify-center text-[#21005D] dark:text-[#EADDFF] mb-3">
           <QrCode className="w-6 h-6" />
         </div>
-        <h3 className="text-xl font-bold text-[#21005D]">Share Room Invite</h3>
-        <p className="text-xs text-[#49454F] mt-1 max-w-xs">
+        <h3 className="text-xl font-bold text-[#21005D] dark:text-[#E6E0E9]">Share Room Invite</h3>
+        <p className="text-xs text-[#49454F] dark:text-[#CAC4D0] mt-1 max-w-xs">
           Scan QR code on mobile or click the link to join instantly without account or setup.
         </p>
 
@@ -91,28 +91,28 @@ export const ShareModal: React.FC<ShareModalProps> = ({ roomId, isOpen, onClose 
 
         {/* Room Code Badge */}
         <div className="mt-4 flex items-center gap-2">
-          <span className="text-xs text-[#49454F]">Room Code:</span>
+          <span className="text-xs text-[#49454F] dark:text-[#CAC4D0]">Room Code:</span>
           <button
             onClick={handleCopyCode}
-            className="px-3 py-1 rounded-full bg-[#F3EDF7] hover:bg-[#EADDFF] text-[#21005D] font-mono font-bold text-sm tracking-wider flex items-center gap-1.5 transition-colors"
+            className="px-3 py-1 rounded-full bg-[#F3EDF7] dark:bg-[#2B2831] hover:bg-[#EADDFF] dark:hover:bg-[#4F378B] text-[#21005D] dark:text-[#E6E0E9] font-mono font-bold text-sm tracking-wider flex items-center gap-1.5 transition-colors border border-transparent dark:border-[#49454F]"
           >
             {roomId}
             {copiedCode ? (
-              <Check className="w-3.5 h-3.5 text-emerald-600" />
+              <Check className="w-3.5 h-3.5 text-emerald-500" />
             ) : (
-              <Copy className="w-3.5 h-3.5 text-[#6750A4]" />
+              <Copy className="w-3.5 h-3.5 text-[#6750A4] dark:text-[#D0BCFF]" />
             )}
           </button>
         </div>
 
         {/* URL Box & Copy Link */}
-        <div className="mt-4 w-full flex items-center gap-2 p-1.5 pl-3 rounded-full bg-[#F3EDF7] border border-[#CAC4D0]/60 text-left">
-          <span className="text-xs text-[#49454F] truncate font-mono flex-1">
+        <div className="mt-4 w-full flex items-center gap-2 p-1.5 pl-3 rounded-full bg-[#F3EDF7] dark:bg-[#2B2831] border border-[#CAC4D0]/60 dark:border-[#49454F] text-left">
+          <span className="text-xs text-[#49454F] dark:text-[#CAC4D0] truncate font-mono flex-1">
             {shareUrl}
           </span>
           <button
             onClick={handleCopyLink}
-            className="px-4 py-2 rounded-full bg-[#6750A4] hover:bg-[#523e85] text-white text-xs font-semibold flex items-center gap-1.5 transition-all shrink-0 active:scale-95"
+            className="px-4 py-2 rounded-full bg-[#6750A4] hover:bg-[#523e85] dark:bg-[#7429B6] dark:hover:bg-[#62219c] text-white text-xs font-semibold flex items-center gap-1.5 transition-all shrink-0 active:scale-95"
           >
             {copiedLink ? (
               <>
@@ -132,7 +132,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ roomId, isOpen, onClose 
         <div className="mt-4 w-full flex gap-2">
           <button
             onClick={handleNativeShare}
-            className="w-full py-2.5 rounded-full bg-[#EADDFF] hover:bg-[#D0BCFF] text-[#21005D] text-xs font-semibold flex items-center justify-center gap-2 transition-colors active:scale-95"
+            className="w-full py-2.5 rounded-full bg-[#EADDFF] hover:bg-[#D0BCFF] dark:bg-[#4F378B] dark:hover:bg-[#5e41a3] text-[#21005D] dark:text-[#EADDFF] text-xs font-semibold flex items-center justify-center gap-2 transition-colors active:scale-95"
           >
             <Share2 className="w-4 h-4" />
             <span>Share via Apps</span>

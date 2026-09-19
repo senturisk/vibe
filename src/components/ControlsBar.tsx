@@ -105,7 +105,7 @@ export const ControlsBar: React.FC<ControlsBarProps> = ({
   return (
     <div className="fixed bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-40 w-auto max-w-[95vw]">
       {/* Material 3 Floating Pill Dock */}
-      <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full bg-[#FEF7FF]/95 backdrop-blur-xl border border-[#EADDFF] shadow-2xl transition-all">
+      <div className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full bg-[#FEF7FF]/95 dark:bg-[#1D1B20]/95 backdrop-blur-xl border border-[#EADDFF] dark:border-[#49454F]/70 shadow-2xl transition-all">
         {/* Microphone Button + Device Selector */}
         <div className="relative flex items-center" ref={micMenuRef}>
           <button
@@ -120,10 +120,10 @@ export const ControlsBar: React.FC<ControlsBarProps> = ({
             }
             className={`flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-full transition-all active:scale-95 ${
               !hasMicHardware
-                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                ? 'bg-gray-200 dark:bg-zinc-800 text-gray-400 dark:text-zinc-600 cursor-not-allowed'
                 : isAudioMuted
                 ? 'bg-[#FFDAD6] text-[#410002] hover:bg-[#FFB4AB]'
-                : 'bg-[#EADDFF] text-[#21005D] hover:bg-[#D0BCFF]'
+                : 'bg-[#EADDFF] text-[#21005D] hover:bg-[#D0BCFF] dark:bg-[#4F378B] dark:text-[#EADDFF]'
             }`}
           >
             {isAudioMuted || !hasMicHardware ? (
@@ -140,7 +140,7 @@ export const ControlsBar: React.FC<ControlsBarProps> = ({
                 setShowCamMenu(false);
               }}
               title="Select Microphone"
-              className="p-1 rounded-full text-[#49454F] hover:bg-[#F3EDF7] -ml-2"
+              className="p-1 rounded-full text-[#49454F] dark:text-[#CAC4D0] hover:bg-[#F3EDF7] dark:hover:bg-[#2B2831] -ml-2"
             >
               <ChevronUp className="w-3.5 h-3.5" />
             </button>
@@ -148,9 +148,9 @@ export const ControlsBar: React.FC<ControlsBarProps> = ({
 
           {/* Microphones dropdown */}
           {showMicMenu && (
-            <div className="absolute bottom-14 left-0 w-64 bg-[#FEF7FF] rounded-2xl p-2 shadow-2xl border border-[#EADDFF] z-50 text-xs">
-              <div className="px-3 py-1.5 font-semibold text-[#21005D]">Select Microphone</div>
-              <div className="divide-y divide-[#EADDFF]/50 max-h-48 overflow-y-auto">
+            <div className="absolute bottom-14 left-0 w-64 bg-[#FEF7FF] dark:bg-[#1D1B20] rounded-2xl p-2 shadow-2xl border border-[#EADDFF] dark:border-[#49454F] z-50 text-xs">
+              <div className="px-3 py-1.5 font-semibold text-[#21005D] dark:text-[#E6E0E9]">Select Microphone</div>
+              <div className="divide-y divide-[#EADDFF]/50 dark:divide-[#49454F]/40 max-h-48 overflow-y-auto">
                 {audioDevices.map((dev, idx) => (
                   <button
                     key={dev.deviceId || idx}
@@ -159,13 +159,13 @@ export const ControlsBar: React.FC<ControlsBarProps> = ({
                       onSwitchMicrophone?.(dev.deviceId);
                       setShowMicMenu(false);
                     }}
-                    className="w-full text-left px-3 py-2 hover:bg-[#F3EDF7] rounded-xl flex items-center justify-between text-[#1D1B20]"
+                    className="w-full text-left px-3 py-2 hover:bg-[#F3EDF7] dark:hover:bg-[#2B2831] rounded-xl flex items-center justify-between text-[#1D1B20] dark:text-[#E6E0E9]"
                   >
                     <span className="truncate pr-2">
                       {dev.label || `Microphone ${idx + 1}`}
                     </span>
                     {selectedAudioId === dev.deviceId && (
-                      <Check className="w-3.5 h-3.5 text-[#6750A4] shrink-0" />
+                      <Check className="w-3.5 h-3.5 text-[#6750A4] dark:text-[#D0BCFF] shrink-0" />
                     )}
                   </button>
                 ))}
@@ -188,10 +188,10 @@ export const ControlsBar: React.FC<ControlsBarProps> = ({
             }
             className={`flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-full transition-all active:scale-95 ${
               !hasCameraHardware
-                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                ? 'bg-gray-200 dark:bg-zinc-800 text-gray-400 dark:text-zinc-600 cursor-not-allowed'
                 : isVideoMuted
                 ? 'bg-[#FFDAD6] text-[#410002] hover:bg-[#FFB4AB]'
-                : 'bg-[#EADDFF] text-[#21005D] hover:bg-[#D0BCFF]'
+                : 'bg-[#EADDFF] text-[#21005D] hover:bg-[#D0BCFF] dark:bg-[#4F378B] dark:text-[#EADDFF]'
             }`}
           >
             {isVideoMuted || !hasCameraHardware ? (
@@ -208,7 +208,7 @@ export const ControlsBar: React.FC<ControlsBarProps> = ({
                 setShowMicMenu(false);
               }}
               title="Select Camera"
-              className="p-1 rounded-full text-[#49454F] hover:bg-[#F3EDF7] -ml-2"
+              className="p-1 rounded-full text-[#49454F] dark:text-[#CAC4D0] hover:bg-[#F3EDF7] dark:hover:bg-[#2B2831] -ml-2"
             >
               <ChevronUp className="w-3.5 h-3.5" />
             </button>
@@ -216,9 +216,9 @@ export const ControlsBar: React.FC<ControlsBarProps> = ({
 
           {/* Cameras dropdown */}
           {showCamMenu && (
-            <div className="absolute bottom-14 left-0 w-64 bg-[#FEF7FF] rounded-2xl p-2 shadow-2xl border border-[#EADDFF] z-50 text-xs">
-              <div className="px-3 py-1.5 font-semibold text-[#21005D]">Select Camera</div>
-              <div className="divide-y divide-[#EADDFF]/50 max-h-48 overflow-y-auto">
+            <div className="absolute bottom-14 left-0 w-64 bg-[#FEF7FF] dark:bg-[#1D1B20] rounded-2xl p-2 shadow-2xl border border-[#EADDFF] dark:border-[#49454F] z-50 text-xs">
+              <div className="px-3 py-1.5 font-semibold text-[#21005D] dark:text-[#E6E0E9]">Select Camera</div>
+              <div className="divide-y divide-[#EADDFF]/50 dark:divide-[#49454F]/40 max-h-48 overflow-y-auto">
                 {videoDevices.map((dev, idx) => (
                   <button
                     key={dev.deviceId || idx}
@@ -227,13 +227,13 @@ export const ControlsBar: React.FC<ControlsBarProps> = ({
                       onSwitchCamera?.(dev.deviceId);
                       setShowCamMenu(false);
                     }}
-                    className="w-full text-left px-3 py-2 hover:bg-[#F3EDF7] rounded-xl flex items-center justify-between text-[#1D1B20]"
+                    className="w-full text-left px-3 py-2 hover:bg-[#F3EDF7] dark:hover:bg-[#2B2831] rounded-xl flex items-center justify-between text-[#1D1B20] dark:text-[#E6E0E9]"
                   >
                     <span className="truncate pr-2">
                       {dev.label || `Camera ${idx + 1}`}
                     </span>
                     {selectedVideoId === dev.deviceId && (
-                      <Check className="w-3.5 h-3.5 text-[#6750A4] shrink-0" />
+                      <Check className="w-3.5 h-3.5 text-[#6750A4] dark:text-[#D0BCFF] shrink-0" />
                     )}
                   </button>
                 ))}
@@ -248,8 +248,8 @@ export const ControlsBar: React.FC<ControlsBarProps> = ({
           title={isScreenSharing ? 'Stop Screen Sharing' : 'Share Screen'}
           className={`flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-full transition-all active:scale-95 ${
             isScreenSharing
-              ? 'bg-[#6750A4] text-white shadow-md animate-pulse'
-              : 'bg-[#F3EDF7] text-[#49454F] hover:bg-[#EADDFF] hover:text-[#21005D]'
+              ? 'bg-[#6750A4] dark:bg-[#D0BCFF] text-white dark:text-[#381E72] shadow-md animate-pulse'
+              : 'bg-[#F3EDF7] dark:bg-[#2B2831] text-[#49454F] dark:text-[#CAC4D0] hover:bg-[#EADDFF] dark:hover:bg-[#4F378B] hover:text-[#21005D] dark:hover:text-[#EADDFF]'
           }`}
         >
           {isScreenSharing ? (
@@ -260,13 +260,13 @@ export const ControlsBar: React.FC<ControlsBarProps> = ({
         </button>
 
         {/* Divider */}
-        <div className="w-[1px] h-6 bg-[#CAC4D0] mx-0.5" />
+        <div className="w-[1px] h-6 bg-[#CAC4D0] dark:bg-[#49454F] mx-0.5" />
 
         {/* Layout Switcher (Grid vs Spotlight) */}
         <button
           onClick={onToggleLayout}
           title={layoutMode === 'grid' ? 'Switch to Spotlight' : 'Switch to Grid'}
-          className="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#F3EDF7] text-[#49454F] hover:bg-[#EADDFF] hover:text-[#21005D] transition-colors"
+          className="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#F3EDF7] dark:bg-[#2B2831] text-[#49454F] dark:text-[#CAC4D0] hover:bg-[#EADDFF] dark:hover:bg-[#4F378B] hover:text-[#21005D] dark:hover:text-[#EADDFF] transition-colors"
         >
           {layoutMode === 'grid' ? (
             <SquareSquare className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -279,7 +279,7 @@ export const ControlsBar: React.FC<ControlsBarProps> = ({
         <button
           onClick={onOpenShare}
           title="Share Invite & QR Code"
-          className="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#F3EDF7] text-[#49454F] hover:bg-[#EADDFF] hover:text-[#21005D] transition-colors"
+          className="flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#F3EDF7] dark:bg-[#2B2831] text-[#49454F] dark:text-[#CAC4D0] hover:bg-[#EADDFF] dark:hover:bg-[#4F378B] hover:text-[#21005D] dark:hover:text-[#EADDFF] transition-colors"
         >
           <QrCode className="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
@@ -288,7 +288,7 @@ export const ControlsBar: React.FC<ControlsBarProps> = ({
         <button
           onClick={onToggleChat}
           title="Open In-Call Chat"
-          className="relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#F3EDF7] text-[#49454F] hover:bg-[#EADDFF] hover:text-[#21005D] transition-colors"
+          className="relative flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#F3EDF7] dark:bg-[#2B2831] text-[#49454F] dark:text-[#CAC4D0] hover:bg-[#EADDFF] dark:hover:bg-[#4F378B] hover:text-[#21005D] dark:hover:text-[#EADDFF] transition-colors"
         >
           <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />
           {unreadChatCount > 0 && (
@@ -302,13 +302,13 @@ export const ControlsBar: React.FC<ControlsBarProps> = ({
         <button
           onClick={onOpenSettings}
           title="Device Settings"
-          className="hidden sm:flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#F3EDF7] text-[#49454F] hover:bg-[#EADDFF] hover:text-[#21005D] transition-colors"
+          className="hidden sm:flex items-center justify-center w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-[#F3EDF7] dark:bg-[#2B2831] text-[#49454F] dark:text-[#CAC4D0] hover:bg-[#EADDFF] dark:hover:bg-[#4F378B] hover:text-[#21005D] dark:hover:text-[#EADDFF] transition-colors"
         >
           <Settings className="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
 
         {/* Divider */}
-        <div className="w-[1px] h-6 bg-[#CAC4D0] mx-0.5" />
+        <div className="w-[1px] h-6 bg-[#CAC4D0] dark:bg-[#49454F] mx-0.5" />
 
         {/* Leave Room (End Call) Button */}
         <button

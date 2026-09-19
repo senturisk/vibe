@@ -17,15 +17,35 @@ import { usePeerRoom } from './hooks/usePeerRoom';
 import { DeviceSettings, LayoutMode } from './types';
 
 export default function App() {
-  // Read room from URL ?room= or ?peer= or ?join=
-  const [urlRoomId, setUrlRoomId] = useState<string>('');
+  // Read room from URL ?room= or ?peer= or ?join= or ?id=
+  const [urlRoomId, setUrlRoomId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const room =
+        params.get('room') ||
+        params.get('peer') ||
+        params.get('join') ||
+        params.get('id');
+      if (room) return room.trim();
+      const raw = window.location.search.replace(/^\?/, '').trim();
+      if (raw && !raw.includes('=')) return decodeURIComponent(raw);
+    }
+    return '';
+  });
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
-      const room = params.get('room') || params.get('peer') || params.get('join') || '';
+      const room =
+        params.get('room') ||
+        params.get('peer') ||
+        params.get('join') ||
+        params.get('id');
       if (room) {
-        setUrlRoomId(room);
+        setUrlRoomId(room.trim());
+      } else {
+        const raw = window.location.search.replace(/^\?/, '').trim();
+        if (raw && !raw.includes('=')) setUrlRoomId(decodeURIComponent(raw));
       }
     }
   }, []);
@@ -45,14 +65,46 @@ export default function App() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
 
-  // Device settings
-  const [deviceSettings, setDeviceSettings] = useState<DeviceSettings>({
-    audioInputId: '',
-    videoInputId: '',
-    audioOutputId: '',
-    videoResolution: '720p',
-    isMirrorMode: true,
+  // Device & Theme settings with persistence
+  const [deviceSettings, setDeviceSettings] = useState<DeviceSettings>(() => {
+    let initialTheme: 'light' | 'dark' = 'light';
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('senvibe_theme');
+      if (saved === 'dark' || saved === 'light') {
+        initialTheme = saved;
+      } else if (window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
+        initialTheme = 'dark';
+      }
+    }
+    return {
+      audioInputId: '',
+      videoInputId: '',
+      audioOutputId: '',
+      videoResolution: '720p',
+      isMirrorMode: true,
+      theme: initialTheme,
+    };
   });
+
+  // Sync dark class on root document whenever theme changes
+  useEffect(() => {
+    const isDark = deviceSettings.theme === 'dark';
+    if (typeof document !== 'undefined') {
+      document.documentElement.classList.toggle('dark', isDark);
+      try {
+        localStorage.setItem('senvibe_theme', deviceSettings.theme);
+      } catch (e) {
+        console.warn('Could not save theme preference:', e);
+      }
+    }
+  }, [deviceSettings.theme]);
+
+  const handleToggleTheme = () => {
+    setDeviceSettings((prev) => ({
+      ...prev,
+      theme: prev.theme === 'dark' ? 'light' : 'dark',
+    }));
+  };
 
   // Call WebRTC Room Hook
   const {
@@ -185,7 +237,7 @@ export default function App() {
   ]);
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#FBF8FD] text-[#1D1B20] selection:bg-[#EADDFF] selection:text-[#21005D]">
+    <div className="min-h-screen flex flex-col bg-[#FBF8FD] dark:bg-[#141218] text-[#1D1B20] dark:text-[#E6E0E9] selection:bg-[#EADDFF] dark:selection:bg-[#4F378B] selection:text-[#21005D] dark:selection:text-[#EADDFF] transition-colors duration-200">
       {/* Top App Bar */}
       <Header
         roomId={activeRoomId}
@@ -195,6 +247,8 @@ export default function App() {
         onOpenShare={() => setIsShareModalOpen(true)}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
         inRoom={inRoom}
+        theme={deviceSettings.theme}
+        onToggleTheme={handleToggleTheme}
       />
 
       {/* Main Content Area */}

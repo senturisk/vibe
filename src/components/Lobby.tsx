@@ -5,9 +5,6 @@ import {
   MicOff,
   Video,
   VideoOff,
-  Sparkles,
-  ShieldCheck,
-  Zap,
   ArrowRight,
   Settings,
   AlertCircle,
@@ -22,6 +19,18 @@ interface LobbyProps {
   onOpenSettings: () => void;
 }
 
+function getUrlRoom(): string {
+  if (typeof window === 'undefined') return '';
+  const params = new URLSearchParams(window.location.search);
+  const room = params.get('room') || params.get('peer') || params.get('join') || params.get('id');
+  if (room) return room.trim();
+  const raw = window.location.search.replace(/^\?/, '').trim();
+  if (raw && !raw.includes('=')) {
+    return decodeURIComponent(raw);
+  }
+  return '';
+}
+
 export const Lobby: React.FC<LobbyProps> = ({
   initialRoomId,
   onJoinRoom,
@@ -29,9 +38,22 @@ export const Lobby: React.FC<LobbyProps> = ({
 }) => {
   // Display name state, pre-seeded with a random 4-digit alphanumeric code
   const [displayName, setDisplayName] = useState(() => generate4DigitCode());
-  const [roomId, setRoomId] = useState(initialRoomId || '');
+  // Auto-populate room ID from prop or directly from URL query param
+  const [roomId, setRoomId] = useState(() => initialRoomId || getUrlRoom());
   const [isAudioMuted, setIsAudioMuted] = useState(false);
   const [isVideoMuted, setIsVideoMuted] = useState(false);
+
+  // Sync if initialRoomId or URL changes
+  useEffect(() => {
+    if (initialRoomId) {
+      setRoomId(initialRoomId);
+    } else {
+      const fromUrl = getUrlRoom();
+      if (fromUrl) {
+        setRoomId(fromUrl);
+      }
+    }
+  }, [initialRoomId]);
 
   // Local media preview state
   const [previewStream, setPreviewStream] = useState<MediaStream | null>(null);
@@ -151,39 +173,32 @@ export const Lobby: React.FC<LobbyProps> = ({
         {/* Left Column: Brand, Setup, Display Name */}
         <div className="md:col-span-6 flex flex-col justify-center space-y-6">
           {/* Logo & Headline */}
-          <div className="space-y-3">
-            <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-[#EADDFF] text-[#21005D] text-xs font-semibold shadow-sm">
-              <Sparkles className="w-3.5 h-3.5 text-[#6750A4]" />
-              <span>Material You 3 WebRTC Platform</span>
+          <div className="flex items-center gap-3.5">
+            <div className="w-14 h-14 rounded-3xl bg-[#F3EDF7] dark:bg-[#2B2831] p-1.5 shadow-md border border-[#EADDFF] dark:border-[#49454F] flex items-center justify-center">
+              <img
+                src="/Sen_Vibe_logo.png"
+                alt="Sen Vibe Logo"
+                className="w-full h-full object-contain"
+              />
             </div>
-
-            <div className="flex items-center gap-3">
-              <div className="w-14 h-14 rounded-3xl bg-[#F3EDF7] p-1.5 shadow-md border border-[#EADDFF] flex items-center justify-center">
-                <img
-                  src="/Sen_Vibe_logo.png"
-                  alt="Sen Vibe Logo"
-                  className="w-full h-full object-contain"
-                />
-              </div>
-              <div>
-                <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#21005D]">
-                  Sen Vibe
-                </h1>
-                <p className="text-xs text-[#49454F] font-medium">
-                  Easy & lagless video, voice, and screen sharing
-                </p>
-              </div>
+            <div>
+              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[#21005D] dark:text-[#E6E0E9]">
+                Sen Vibe
+              </h1>
+              <p className="text-xs text-[#49454F] dark:text-[#CAC4D0] font-medium">
+                Easy & lagless video, voice, and screen sharing
+              </p>
             </div>
           </div>
 
           {/* Form Card */}
           <form
             onSubmit={handleJoin}
-            className="p-6 rounded-3xl bg-[#FEF7FF] border border-[#EADDFF] shadow-xl space-y-5"
+            className="p-6 rounded-3xl bg-[#FEF7FF] dark:bg-[#1D1B20] border border-[#EADDFF] dark:border-[#49454F]/60 shadow-xl space-y-5"
           >
             {/* Display Name Section */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold uppercase tracking-wider text-[#21005D]">
+              <label className="block text-xs font-bold uppercase tracking-wider text-[#21005D] dark:text-[#E6E0E9]">
                 Your Display Name
               </label>
               <div className="flex items-center gap-2">
@@ -193,26 +208,26 @@ export const Lobby: React.FC<LobbyProps> = ({
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="e.g. 7K9A or Alex"
-                  className="flex-1 px-4 py-3 rounded-2xl bg-[#F3EDF7] border border-[#CAC4D0]/60 text-sm font-semibold text-[#1D1B20] focus:outline-none focus:ring-2 focus:ring-[#6750A4]"
+                  className="flex-1 px-4 py-3 rounded-2xl bg-[#F3EDF7] dark:bg-[#2B2831] border border-[#CAC4D0]/60 dark:border-[#49454F] text-sm font-semibold text-[#1D1B20] dark:text-[#E6E0E9] focus:outline-none focus:ring-2 focus:ring-[#6750A4] dark:focus:ring-[#D0BCFF]"
                 />
                 <button
                   type="button"
                   onClick={handleRandomizeName}
                   title="Generate Random 4-Digit Code"
-                  className="flex items-center gap-1.5 px-4 py-3 rounded-2xl bg-[#EADDFF] hover:bg-[#D0BCFF] text-[#21005D] text-xs font-bold transition-all active:scale-95 shadow-sm"
+                  className="flex items-center gap-1.5 px-4 py-3 rounded-2xl bg-[#EADDFF] dark:bg-[#4F378B] hover:bg-[#D0BCFF] dark:hover:bg-[#62219c] text-[#21005D] dark:text-[#EADDFF] text-xs font-bold transition-all active:scale-95 shadow-sm"
                 >
                   <Dice5 className="w-4 h-4" />
                   <span>Random</span>
                 </button>
               </div>
-              <p className="text-[11px] text-[#49454F]">
+              <p className="text-[11px] text-[#49454F] dark:text-[#CAC4D0]">
                 Pick your custom name or use the randomized 4-digit code.
               </p>
             </div>
 
             {/* Room ID Section */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold uppercase tracking-wider text-[#21005D]">
+              <label className="block text-xs font-bold uppercase tracking-wider text-[#21005D] dark:text-[#E6E0E9]">
                 Room Code
               </label>
               <input
@@ -220,12 +235,18 @@ export const Lobby: React.FC<LobbyProps> = ({
                 value={roomId}
                 onChange={(e) => setRoomId(e.target.value)}
                 placeholder="Leave blank to create a new room"
-                className="w-full px-4 py-3 rounded-2xl bg-[#F3EDF7] border border-[#CAC4D0]/60 text-sm font-mono text-[#1D1B20] focus:outline-none focus:ring-2 focus:ring-[#6750A4]"
+                className="w-full px-4 py-3 rounded-2xl bg-[#F3EDF7] dark:bg-[#2B2831] border border-[#CAC4D0]/60 dark:border-[#49454F] text-sm font-mono text-[#1D1B20] dark:text-[#E6E0E9] focus:outline-none focus:ring-2 focus:ring-[#6750A4] dark:focus:ring-[#D0BCFF]"
               />
-              {initialRoomId && (
-                <p className="text-[11px] text-[#6750A4] font-medium flex items-center gap-1">
-                  <Users className="w-3.5 h-3.5" />
-                  You were invited to join room: <span className="font-bold">{initialRoomId}</span>
+              {roomId ? (
+                <p className="text-[11px] text-[#6750A4] dark:text-[#D0BCFF] font-medium flex items-center gap-1.5 pt-0.5">
+                  <Users className="w-3.5 h-3.5 shrink-0" />
+                  <span>
+                    Ready to join room: <strong className="font-mono font-bold bg-[#EADDFF] dark:bg-[#4F378B] text-[#21005D] dark:text-[#EADDFF] px-1.5 py-0.5 rounded">{roomId}</strong>
+                  </span>
+                </p>
+              ) : (
+                <p className="text-[11px] text-[#49454F] dark:text-[#CAC4D0]">
+                  Enter a room code or leave blank to automatically start a new room.
                 </p>
               )}
             </div>
@@ -233,33 +254,17 @@ export const Lobby: React.FC<LobbyProps> = ({
             {/* Submit Button */}
             <button
               type="submit"
-              className="w-full py-3.5 px-6 rounded-full bg-[#6750A4] hover:bg-[#523e85] text-white font-bold text-sm shadow-lg hover:shadow-xl transition-all active:scale-98 flex items-center justify-center gap-2"
+              className="w-full py-3.5 px-6 rounded-full bg-[#6750A4] hover:bg-[#523e85] dark:bg-[#7429B6] dark:hover:bg-[#62219c] text-white font-bold text-sm shadow-lg hover:shadow-xl transition-all active:scale-98 flex items-center justify-center gap-2"
             >
-              <span>{roomId ? 'Join Room' : 'Start New Room'}</span>
+              <span>{roomId.trim() ? `Join Room (${roomId.trim()})` : 'Start New Room'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
-
-          {/* Quick Badges */}
-          <div className="grid grid-cols-3 gap-2 text-center text-[11px] text-[#49454F]">
-            <div className="p-2.5 rounded-2xl bg-[#F3EDF7] border border-[#EADDFF]">
-              <Zap className="w-4 h-4 text-[#6750A4] mx-auto mb-1" />
-              <span className="font-medium">Lagless P2P</span>
-            </div>
-            <div className="p-2.5 rounded-2xl bg-[#F3EDF7] border border-[#EADDFF]">
-              <ShieldCheck className="w-4 h-4 text-[#6750A4] mx-auto mb-1" />
-              <span className="font-medium">No External ICE</span>
-            </div>
-            <div className="p-2.5 rounded-2xl bg-[#F3EDF7] border border-[#EADDFF]">
-              <Sparkles className="w-4 h-4 text-[#6750A4] mx-auto mb-1" />
-              <span className="font-medium">Direct QR Scan</span>
-            </div>
-          </div>
         </div>
 
         {/* Right Column: Interactive Video & Mic Preview Card */}
         <div className="md:col-span-6 flex flex-col items-center">
-          <div className="w-full relative rounded-3xl overflow-hidden bg-[#1E192B] border-2 border-[#EADDFF] shadow-2xl aspect-video flex items-center justify-center">
+          <div className="w-full relative rounded-3xl overflow-hidden bg-[#1E192B] border-2 border-[#EADDFF] dark:border-[#49454F] shadow-2xl aspect-video flex items-center justify-center">
             {/* Live Video Mirror */}
             <video
               ref={videoRef}
@@ -274,7 +279,7 @@ export const Lobby: React.FC<LobbyProps> = ({
             {/* Video Off Placeholder */}
             {(!hasCamera || isVideoMuted) && (
               <div className="flex flex-col items-center justify-center text-center p-6 select-none">
-                <div className="w-20 h-20 rounded-full bg-[#EADDFF] flex items-center justify-center text-[#21005D] text-2xl font-bold mb-3 shadow-inner">
+                <div className="w-20 h-20 rounded-full bg-[#EADDFF] dark:bg-[#4F378B] flex items-center justify-center text-[#21005D] dark:text-[#EADDFF] text-2xl font-bold mb-3 shadow-inner">
                   {displayName.slice(0, 2).toUpperCase() || 'SV'}
                 </div>
                 <p className="text-white/90 text-sm font-semibold">
@@ -311,7 +316,7 @@ export const Lobby: React.FC<LobbyProps> = ({
                 className={`p-2.5 rounded-full shadow-md transition-all active:scale-95 ${
                   isAudioMuted || !hasMic
                     ? 'bg-[#FFDAD6] text-[#410002]'
-                    : 'bg-[#EADDFF] text-[#21005D] hover:bg-[#D0BCFF]'
+                    : 'bg-[#EADDFF] text-[#21005D] hover:bg-[#D0BCFF] dark:bg-[#4F378B] dark:text-[#EADDFF]'
                 }`}
               >
                 {isAudioMuted || !hasMic ? (
@@ -329,7 +334,7 @@ export const Lobby: React.FC<LobbyProps> = ({
                 className={`p-2.5 rounded-full shadow-md transition-all active:scale-95 ${
                   isVideoMuted || !hasCamera
                     ? 'bg-[#FFDAD6] text-[#410002]'
-                    : 'bg-[#EADDFF] text-[#21005D] hover:bg-[#D0BCFF]'
+                    : 'bg-[#EADDFF] text-[#21005D] hover:bg-[#D0BCFF] dark:bg-[#4F378B] dark:text-[#EADDFF]'
                 }`}
               >
                 {isVideoMuted || !hasCamera ? (
@@ -352,7 +357,7 @@ export const Lobby: React.FC<LobbyProps> = ({
 
           {/* Graceful Permission Alert Banner if any */}
           {permissionNotice && (
-            <div className="mt-3 w-full p-3 rounded-2xl bg-[#FFF8E1] border border-[#FFE082] text-[#5D4037] text-xs flex items-center gap-2 shadow-sm">
+            <div className="mt-3 w-full p-3 rounded-2xl bg-[#FFF8E1] dark:bg-[#3E2723] border border-[#FFE082] dark:border-[#795548] text-[#5D4037] dark:text-[#FFE082] text-xs flex items-center gap-2 shadow-sm">
               <AlertCircle className="w-4 h-4 text-[#FFA000] shrink-0" />
               <span>{permissionNotice}</span>
             </div>
