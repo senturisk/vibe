@@ -8,7 +8,7 @@ export const Footer: React.FC = () => {
         <div className="flex items-center gap-2">
           <span className="font-semibold text-[#21005D] dark:text-[#E6E0E9]">Sen Vibe</span>
           <span className="text-[#79747E] dark:text-[#938F99]">•</span>
-          <span>© 2026 Sen Vibe by Senturisk. All rights reserved.</span>
+          <span>© 2026 Senturisk.</span>
         </div>
 
         <div className="flex items-center gap-3 text-[11px] text-[#49454F] dark:text-[#CAC4D0]">
