@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Mic, MicOff, Monitor, Maximize2, Minimize2, PictureInPicture2, Pin, PinOff, User } from 'lucide-react';
+import { Mic, MicOff, Monitor, Maximize2, Minimize2, PictureInPicture2, Pin, PinOff, User, Volume2 } from 'lucide-react';
 
 interface VideoTileProps {
   stream?: MediaStream;
@@ -8,6 +8,7 @@ interface VideoTileProps {
   isAudioMuted?: boolean;
   isVideoMuted?: boolean;
   isScreenSharing?: boolean;
+  isScreenAudioActive?: boolean;
   volumeLevel?: number; // 0 - 100
   isSpeaking?: boolean;
   isPinned?: boolean;
@@ -22,6 +23,7 @@ export const VideoTile: React.FC<VideoTileProps> = ({
   isAudioMuted = false,
   isVideoMuted = false,
   isScreenSharing = false,
+  isScreenAudioActive = false,
   volumeLevel = 0,
   isSpeaking = false,
   isPinned = false,
@@ -29,6 +31,7 @@ export const VideoTile: React.FC<VideoTileProps> = ({
   onTogglePin,
 }) => {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [supportsPip, setSupportsPip] = useState(false);
@@ -38,6 +41,18 @@ export const VideoTile: React.FC<VideoTileProps> = ({
       videoRef.current.srcObject = stream;
     }
   }, [stream]);
+
+  // Ensure remote audio playback continues smoothly across track changes
+  useEffect(() => {
+    if (!isLocal && audioRef.current && stream) {
+      if (audioRef.current.srcObject !== stream) {
+        audioRef.current.srcObject = stream;
+        audioRef.current.play().catch((err) => {
+          console.warn('Audio auto-play prevented:', err);
+        });
+      }
+    }
+  }, [isLocal, stream]);
 
   useEffect(() => {
     setSupportsPip(document.pictureInPictureEnabled ?? false);
@@ -58,7 +73,7 @@ export const VideoTile: React.FC<VideoTileProps> = ({
     if (!videoRef.current) return;
     try {
       if (document.pictureInPictureElement) {
-        await document.exitPictureInPicture();
+        await document.pictureInPictureElement ? document.exitPictureInPicture() : null;
       } else {
         await videoRef.current.requestPictureInPicture();
       }
@@ -73,23 +88,35 @@ export const VideoTile: React.FC<VideoTileProps> = ({
   const bar3 = Math.min(100, Math.max(15, volumeLevel * 1.1));
   const bar4 = Math.min(100, Math.max(15, volumeLevel * 1.3));
 
-  const showVideo = !isVideoMuted && stream && stream.getVideoTracks().some((t) => t.enabled);
+  // During screen sharing, the screen video track is active even when user's camera is turned off
+  const showVideo =
+    (isScreenSharing || !isVideoMuted) &&
+    Boolean(stream && stream.getVideoTracks().some((t) => t.enabled));
 
   return (
     <div
       ref={containerRef}
       className={`group relative overflow-hidden rounded-3xl bg-[#1E192B] border-2 transition-all duration-200 flex items-center justify-center aspect-video w-full ${
-        isSpeaking && !isAudioMuted
+        isSpeaking && (!isAudioMuted || isScreenAudioActive)
           ? 'border-[#7429B6] shadow-[0_0_20px_rgba(116,41,182,0.4)]'
           : 'border-[#EADDFF]/20 shadow-md'
       }`}
     >
+      {/* Dedicated Remote Audio Playback Element */}
+      {!isLocal && (
+        <audio
+          ref={audioRef}
+          autoPlay
+          playsInline
+        />
+      )}
+
       {/* Video Element */}
       <video
         ref={videoRef}
         autoPlay
         playsInline
-        muted={isLocal} // Always mute local to avoid feedback loop
+        muted={isLocal} // Always mute local video element to avoid audio feedback loop
         className={`w-full h-full object-contain ${
           isLocal && isMirror && !isScreenSharing ? 'scale-x-[-1]' : ''
         } ${showVideo ? 'block' : 'hidden'}`}
@@ -106,7 +133,7 @@ export const VideoTile: React.FC<VideoTileProps> = ({
             )}
 
             {/* Speaking animated ring around avatar */}
-            {isSpeaking && !isAudioMuted && (
+            {isSpeaking && (!isAudioMuted || isScreenAudioActive) && (
               <span className="absolute inset-0 rounded-full border-4 border-[#7429B6] animate-ping opacity-75 pointer-events-none" />
             )}
           </div>
@@ -118,8 +145,14 @@ export const VideoTile: React.FC<VideoTileProps> = ({
       {/* Screen Sharing Watermark / Badge */}
       {isScreenSharing && (
         <div className="absolute top-3 left-3 flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#6750A4]/90 backdrop-blur-md text-white text-xs font-semibold shadow-md">
-          <Monitor className="w-3.5 h-3.5 animate-pulse" />
+          <Monitor className="w-3.5 h-3.5 animate-pulse text-[#EADDFF]" />
           <span>Screen Share</span>
+          {isScreenAudioActive && (
+            <span className="flex items-center gap-1 pl-1.5 ml-0.5 border-l border-white/30 text-[11px] text-[#EADDFF]">
+              <Volume2 className="w-3 h-3 text-[#D0BCFF]" />
+              <span>Audio</span>
+            </span>
+          )}
         </div>
       )}
 
@@ -159,8 +192,8 @@ export const VideoTile: React.FC<VideoTileProps> = ({
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-md text-white text-xs font-medium max-w-[80%] truncate">
           <span className="truncate">{name} {isLocal && '(You)'}</span>
 
-          {/* Real-time Voice Volume Indicator Bars */}
-          {!isAudioMuted ? (
+          {/* Real-time Voice / Screen Volume Indicator Bars */}
+          {!isAudioMuted || isScreenAudioActive ? (
             <div className="flex items-end gap-[2px] h-3.5 w-4 ml-1 shrink-0" title={`Volume: ${volumeLevel}%`}>
               <span
                 style={{ height: `${bar1}%` }}
@@ -194,11 +227,19 @@ export const VideoTile: React.FC<VideoTileProps> = ({
           )}
         </div>
 
-        {/* Local mic status icon on right if muted */}
+        {/* Mic status badge on right if muted */}
         {isAudioMuted && (
-          <div className="px-2.5 py-1 rounded-full bg-rose-600/90 backdrop-blur-sm text-white text-[11px] font-medium flex items-center gap-1 shadow-sm">
+          <div
+            className={`px-2.5 py-1 rounded-full backdrop-blur-sm text-white text-[11px] font-medium flex items-center gap-1 shadow-sm ${
+              isScreenAudioActive
+                ? 'bg-[#4F378B]/90 border border-[#D0BCFF]/30 text-[#EADDFF]'
+                : 'bg-rose-600/90'
+            }`}
+          >
             <MicOff className="w-3 h-3" />
-            <span className="hidden sm:inline">Muted</span>
+            <span className="hidden sm:inline">
+              {isScreenAudioActive ? 'Mic Muted • Screen Audio On' : 'Muted'}
+            </span>
           </div>
         )}
       </div>

@@ -3,6 +3,7 @@ import Peer, { type MediaConnection, type DataConnection } from 'peerjs';
 import { RemotePeer, ChatMessage, ConnectionStatus } from '../types';
 import { createAudioMeter } from '../utils/audioAnalyser';
 import { acquireUserMedia } from '../utils/mediaUtils';
+import { ScreenAudioMixer } from '../utils/audioMixer';
 
 interface UsePeerRoomProps {
   roomId: string;
@@ -19,6 +20,7 @@ interface PeerMessage {
   isAudioMuted?: boolean;
   isVideoMuted?: boolean;
   isScreenSharing?: boolean;
+  isScreenAudioActive?: boolean;
   chatMessage?: ChatMessage;
 }
 
@@ -37,6 +39,7 @@ export function usePeerRoom({
   const [isAudioMuted, setIsAudioMuted] = useState(initialAudioMuted);
   const [isVideoMuted, setIsVideoMuted] = useState(initialVideoMuted);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [isScreenAudioActive, setIsScreenAudioActive] = useState(false);
   const [localVolume, setLocalVolume] = useState(0);
   const [isLocalSpeaking, setIsLocalSpeaking] = useState(false);
   const [hasCameraHardware, setHasCameraHardware] = useState(true);
@@ -55,6 +58,8 @@ export function usePeerRoom({
   const cameraTrackRef = useRef<MediaStreamTrack | null>(null);
   const micTrackRef = useRef<MediaStreamTrack | null>(null);
   const screenTrackRef = useRef<MediaStreamTrack | null>(null);
+  const screenAudioTrackRef = useRef<MediaStreamTrack | null>(null);
+  const screenAudioMixerRef = useRef<ScreenAudioMixer | null>(null);
   const localAudioCleanupRef = useRef<(() => void) | null>(null);
   const remoteAudioCleanupsRef = useRef<Map<string, () => void>>(new Map());
   const isHostRef = useRef<boolean>(false);
@@ -148,6 +153,7 @@ export function usePeerRoom({
         isAudioMuted,
         isVideoMuted,
         isScreenSharing,
+        isScreenAudioActive,
       });
 
       // If we are the room host, send the known peer list to the new peer
@@ -181,6 +187,7 @@ export function usePeerRoom({
             isAudioMuted: false,
             isVideoMuted: false,
             isScreenSharing: false,
+            isScreenAudioActive: false,
             volumeLevel: 0,
             isSpeaking: false,
           };
@@ -191,6 +198,7 @@ export function usePeerRoom({
             isAudioMuted: msg.isAudioMuted !== undefined ? msg.isAudioMuted : existing.isAudioMuted,
             isVideoMuted: msg.isVideoMuted !== undefined ? msg.isVideoMuted : existing.isVideoMuted,
             isScreenSharing: msg.isScreenSharing !== undefined ? msg.isScreenSharing : existing.isScreenSharing,
+            isScreenAudioActive: msg.isScreenAudioActive !== undefined ? msg.isScreenAudioActive : existing.isScreenAudioActive,
           });
           return updated;
         });
@@ -203,7 +211,7 @@ export function usePeerRoom({
       activeDataConsRef.current.delete(conn.peer);
       knownPeerIdsRef.current.delete(conn.peer);
     });
-  }, [userName, isAudioMuted, isVideoMuted, isScreenSharing]);
+  }, [userName, isAudioMuted, isVideoMuted, isScreenSharing, isScreenAudioActive]);
 
   // Handle incoming media call
   const setupMediaCall = useCallback((call: MediaConnection, streamToAnswer: MediaStream) => {
@@ -388,7 +396,17 @@ export function usePeerRoom({
       // Stop all tracks
       if (screenTrackRef.current) {
         screenTrackRef.current.stop();
+        screenTrackRef.current = null;
       }
+      if (screenAudioTrackRef.current) {
+        screenAudioTrackRef.current.stop();
+        screenAudioTrackRef.current = null;
+      }
+      if (screenAudioMixerRef.current) {
+        screenAudioMixerRef.current.destroy();
+        screenAudioMixerRef.current = null;
+      }
+
       activeCallsRef.current.forEach((call) => call.close());
       activeCallsRef.current.clear();
       activeDataConsRef.current.forEach((conn) => conn.close());
@@ -405,67 +423,136 @@ export function usePeerRoom({
   }, [roomId, localStream]);
 
   // Toggle Audio (Mute / Unmute)
+  // When screen audio is active, muting mic will mute the voice while letting screen audio play through!
   const toggleAudio = useCallback(() => {
-    if (!localStream) return;
-    const audioTrack = localStream.getAudioTracks()[0];
-    if (audioTrack) {
-      const newMutedState = !isAudioMuted;
-      audioTrack.enabled = !newMutedState;
-      setIsAudioMuted(newMutedState);
+    const newMutedState = !isAudioMuted;
+    setIsAudioMuted(newMutedState);
 
-      broadcast({
-        type: 'status_update',
-        userId: peerRef.current?.id,
-        isAudioMuted: newMutedState,
-      });
+    if (micTrackRef.current) {
+      micTrackRef.current.enabled = !newMutedState;
     }
-  }, [localStream, isAudioMuted, broadcast]);
+
+    // If screen audio mixer is active, adjust mic gain in the mixer while screen audio continues!
+    if (screenAudioMixerRef.current) {
+      screenAudioMixerRef.current.setMicMuted(newMutedState);
+    } else if (localStream) {
+      const audioTrack = localStream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !newMutedState;
+      }
+    }
+
+    broadcast({
+      type: 'status_update',
+      userId: peerRef.current?.id,
+      isAudioMuted: newMutedState,
+      isScreenAudioActive,
+    });
+  }, [isAudioMuted, isScreenAudioActive, broadcast, localStream]);
 
   // Toggle Video (Camera On / Off)
-  const toggleVideo = useCallback(() => {
+  const toggleVideo = useCallback(async () => {
     if (!localStream) return;
-    const videoTrack = localStream.getVideoTracks()[0];
-    if (videoTrack) {
-      const newMutedState = !isVideoMuted;
-      videoTrack.enabled = !newMutedState;
-      setIsVideoMuted(newMutedState);
 
+    // If currently screen sharing and user turns video on, stop screen sharing and switch to camera ON
+    if (isScreenSharing) {
+      await toggleScreenShare();
+      if (cameraTrackRef.current) {
+        cameraTrackRef.current.enabled = true;
+      }
+      setIsVideoMuted(false);
       broadcast({
         type: 'status_update',
         userId: peerRef.current?.id,
-        isVideoMuted: newMutedState,
+        isVideoMuted: false,
       });
+      return;
     }
-  }, [localStream, isVideoMuted, broadcast]);
 
-  // Lagless Screen Share Toggle using RTCRtpSender.replaceTrack
+    const camTrack = cameraTrackRef.current;
+    const newMutedState = !isVideoMuted;
+    if (camTrack) {
+      camTrack.enabled = !newMutedState;
+    }
+    const currentVideoTrack = localStream.getVideoTracks()[0];
+    if (currentVideoTrack && currentVideoTrack !== camTrack) {
+      currentVideoTrack.enabled = !newMutedState;
+    }
+    setIsVideoMuted(newMutedState);
+
+    broadcast({
+      type: 'status_update',
+      userId: peerRef.current?.id,
+      isVideoMuted: newMutedState,
+    });
+  }, [localStream, isVideoMuted, isScreenSharing, broadcast]);
+
+  // Screen Share Toggle with audio mixing & automatic camera auto-off
   const toggleScreenShare = useCallback(async () => {
     if (!localStream) return;
 
     if (isScreenSharing) {
-      // STOP SCREEN SHARE: switch back to camera track
-      const camTrack = cameraTrackRef.current;
+      // STOP SCREEN SHARE:
+      // 1. Stop screen video track
       if (screenTrackRef.current) {
         screenTrackRef.current.stop();
         screenTrackRef.current = null;
       }
 
+      // 2. Stop screen audio track and dismantle mixer
+      if (screenAudioTrackRef.current) {
+        screenAudioTrackRef.current.stop();
+        screenAudioTrackRef.current = null;
+      }
+      if (screenAudioMixerRef.current) {
+        screenAudioMixerRef.current.destroy();
+        screenAudioMixerRef.current = null;
+      }
+      setIsScreenAudioActive(false);
+
+      // 3. Restore microphone track to WebRTC audio senders & localStream
+      if (micTrackRef.current) {
+        micTrackRef.current.enabled = !isAudioMuted;
+
+        activeCallsRef.current.forEach((call) => {
+          const senders = call.peerConnection?.getSenders() || [];
+          const audioSender = senders.find((s) => s.track && s.track.kind === 'audio');
+          if (audioSender && micTrackRef.current) {
+            audioSender.replaceTrack(micTrackRef.current).catch((err) => {
+              console.warn('Error restoring mic track to audio sender:', err);
+            });
+          }
+        });
+
+        const curAudio = localStream.getAudioTracks()[0];
+        if (curAudio && curAudio !== micTrackRef.current) {
+          localStream.removeTrack(curAudio);
+          localStream.addTrack(micTrackRef.current);
+        }
+      }
+
+      // 4. Restore camera track to video senders & localStream
+      const camTrack = cameraTrackRef.current;
       if (camTrack) {
-        // Replace in RTCRtpSenders
+        // Since video control was auto turned off when screen sharing started,
+        // camTrack remains off (!isVideoMuted) unless user explicitly turned it back on
+        camTrack.enabled = !isVideoMuted;
+
         activeCallsRef.current.forEach((call) => {
           const senders = call.peerConnection?.getSenders() || [];
           const videoSender = senders.find((s) => s.track && s.track.kind === 'video');
           if (videoSender) {
-            videoSender.replaceTrack(camTrack).catch(console.error);
+            videoSender.replaceTrack(camTrack).catch((err) => {
+              console.warn('Error restoring camera track to video sender:', err);
+            });
           }
         });
 
-        // Replace in local stream
-        const currentVideo = localStream.getVideoTracks()[0];
-        if (currentVideo) {
-          localStream.removeTrack(currentVideo);
+        const curVideo = localStream.getVideoTracks()[0];
+        if (curVideo && curVideo !== camTrack) {
+          localStream.removeTrack(curVideo);
+          localStream.addTrack(camTrack);
         }
-        localStream.addTrack(camTrack);
       }
 
       setIsScreenSharing(false);
@@ -473,54 +560,142 @@ export function usePeerRoom({
         type: 'status_update',
         userId: peerRef.current?.id,
         isScreenSharing: false,
+        isScreenAudioActive: false,
       });
     } else {
       // START SCREEN SHARE
       try {
-        const displayStream = await navigator.mediaDevices.getDisplayMedia({
-          video: {
-            frameRate: { ideal: 30, max: 60 },
-          },
-          audio: true,
-        });
+        let displayStream: MediaStream;
+        try {
+          const displayMediaOptions = {
+            video: {
+              frameRate: { ideal: 30, max: 60 },
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+            },
+            audio: {
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false,
+            },
+            systemAudio: 'include',
+            surfaceSwitching: 'include',
+          } as DisplayMediaStreamOptions & { systemAudio?: string; surfaceSwitching?: string };
 
-        const screenTrack = displayStream.getVideoTracks()[0];
-        if (!screenTrack) return;
+          displayStream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
+        } catch (err: unknown) {
+          const errorName = (err as { name?: string })?.name;
+          if (errorName === 'TypeError' || errorName === 'OverconstrainedError') {
+            displayStream = await navigator.mediaDevices.getDisplayMedia({
+              video: true,
+              audio: true,
+            });
+          } else {
+            throw err;
+          }
+        }
 
-        screenTrackRef.current = screenTrack;
+        const screenVideoTrack = displayStream.getVideoTracks()[0];
+        if (!screenVideoTrack) return;
 
-        // Automatically revert back if user stops sharing via browser's built-in floating pill
-        screenTrack.onended = () => {
+        screenTrackRef.current = screenVideoTrack;
+
+        // Auto revert back if user stops sharing via browser's built-in floating pill
+        screenVideoTrack.onended = () => {
           toggleScreenShare();
         };
 
-        // Instant lagless track replacement across all active WebRTC senders
+        // AUTO TURN OFF VIDEO CONTROL IF VIDEO/CAMERA WAS ON BEFORE SCREEN SHARING BEGAN:
+        let updatedVideoMuted = isVideoMuted;
+        if (!isVideoMuted) {
+          if (cameraTrackRef.current) {
+            cameraTrackRef.current.enabled = false;
+          }
+          setIsVideoMuted(true);
+          updatedVideoMuted = true;
+          broadcast({
+            type: 'status_update',
+            userId: peerRef.current?.id,
+            isVideoMuted: true,
+          });
+        }
+
+        // Check if user shared audio (e.g. checked "Share audio" / "Share tab audio")
+        const screenAudioTracks = displayStream.getAudioTracks();
+        const hasScreenAudio = screenAudioTracks.length > 0;
+        let mixedAudioTrack: MediaStreamTrack | null = null;
+
+        if (hasScreenAudio) {
+          const screenAudioTrack = screenAudioTracks[0];
+          screenAudioTrackRef.current = screenAudioTrack;
+
+          screenAudioTrack.onended = () => {
+            console.log('In-screen audio track ended');
+            setIsScreenAudioActive(false);
+          };
+
+          const mixer = new ScreenAudioMixer();
+          mixedAudioTrack = mixer.initialize(
+            micTrackRef.current,
+            screenAudioTrack,
+            isAudioMuted
+          );
+
+          if (mixedAudioTrack) {
+            screenAudioMixerRef.current = mixer;
+            setIsScreenAudioActive(true);
+
+            // Replace audio track across all active WebRTC calls
+            activeCallsRef.current.forEach((call) => {
+              const senders = call.peerConnection?.getSenders() || [];
+              const audioSender = senders.find((s) => s.track && s.track.kind === 'audio');
+              if (audioSender && mixedAudioTrack) {
+                audioSender.replaceTrack(mixedAudioTrack).catch((e) => {
+                  console.warn('Failed to replace audio track with screen audio mixer:', e);
+                });
+              }
+            });
+
+            // Update localStream audio track for subsequent callers
+            const curAudio = localStream.getAudioTracks()[0];
+            if (curAudio) {
+              localStream.removeTrack(curAudio);
+            }
+            localStream.addTrack(mixedAudioTrack);
+          }
+        } else {
+          setIsScreenAudioActive(false);
+        }
+
+        // Replace video track across all active WebRTC senders with screen share track
         activeCallsRef.current.forEach((call) => {
           const senders = call.peerConnection?.getSenders() || [];
           const videoSender = senders.find((s) => s.track && s.track.kind === 'video');
           if (videoSender) {
-            videoSender.replaceTrack(screenTrack).catch(console.error);
+            videoSender.replaceTrack(screenVideoTrack).catch(console.error);
           }
         });
 
-        // Update local stream
-        const currentVideo = localStream.getVideoTracks()[0];
-        if (currentVideo) {
-          localStream.removeTrack(currentVideo);
+        // Update localStream video track
+        const curVideo = localStream.getVideoTracks()[0];
+        if (curVideo) {
+          localStream.removeTrack(curVideo);
         }
-        localStream.addTrack(screenTrack);
+        localStream.addTrack(screenVideoTrack);
 
         setIsScreenSharing(true);
         broadcast({
           type: 'status_update',
           userId: peerRef.current?.id,
           isScreenSharing: true,
+          isScreenAudioActive: hasScreenAudio && Boolean(mixedAudioTrack),
+          isVideoMuted: updatedVideoMuted,
         });
       } catch (err) {
         console.warn('Screen share canceled or denied:', err);
       }
     }
-  }, [localStream, isScreenSharing, broadcast]);
+  }, [localStream, isScreenSharing, isAudioMuted, isVideoMuted, broadcast]);
 
   // Switch video input device (Camera)
   const switchCameraDevice = useCallback(async (deviceId: string) => {
@@ -553,6 +728,9 @@ export function usePeerRoom({
         }
         localStream.addTrack(newTrack);
         newTrack.enabled = !isVideoMuted;
+      } else {
+        // While screen sharing, camera is kept off
+        newTrack.enabled = false;
       }
     } catch (err) {
       console.error('Failed to switch camera:', err);
@@ -573,27 +751,32 @@ export function usePeerRoom({
 
       micTrackRef.current = newTrack;
 
-      activeCallsRef.current.forEach((call) => {
-        const senders = call.peerConnection?.getSenders() || [];
-        const audioSender = senders.find((s) => s.track && s.track.kind === 'audio');
-        if (audioSender) {
-          audioSender.replaceTrack(newTrack).catch(console.error);
-        }
-      });
+      // If screen audio mixer is running, update the mixer with the new microphone source
+      if (screenAudioMixerRef.current) {
+        screenAudioMixerRef.current.updateMicTrack(newTrack, isAudioMuted);
+      } else {
+        activeCallsRef.current.forEach((call) => {
+          const senders = call.peerConnection?.getSenders() || [];
+          const audioSender = senders.find((s) => s.track && s.track.kind === 'audio');
+          if (audioSender) {
+            audioSender.replaceTrack(newTrack).catch(console.error);
+          }
+        });
 
-      const currentAudio = localStream.getAudioTracks()[0];
-      if (currentAudio) {
-        currentAudio.stop();
-        localStream.removeTrack(currentAudio);
+        const currentAudio = localStream.getAudioTracks()[0];
+        if (currentAudio) {
+          currentAudio.stop();
+          localStream.removeTrack(currentAudio);
+        }
+        localStream.addTrack(newTrack);
+        newTrack.enabled = !isAudioMuted;
       }
-      localStream.addTrack(newTrack);
-      newTrack.enabled = !isAudioMuted;
 
       // Re-attach audio meter for local stream
       if (localAudioCleanupRef.current) {
         localAudioCleanupRef.current();
       }
-      localAudioCleanupRef.current = createAudioMeter(localStream, (volume, isSpeaking) => {
+      localAudioCleanupRef.current = createAudioMeter(new MediaStream([newTrack]), (volume, isSpeaking) => {
         setLocalVolume(volume);
         setIsLocalSpeaking(isSpeaking);
       });
@@ -630,6 +813,7 @@ export function usePeerRoom({
     isAudioMuted,
     isVideoMuted,
     isScreenSharing,
+    isScreenAudioActive,
     localVolume,
     isLocalSpeaking,
     hasCameraHardware,

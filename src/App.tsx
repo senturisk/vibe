@@ -115,6 +115,7 @@ export default function App() {
     isAudioMuted,
     isVideoMuted,
     isScreenSharing,
+    isScreenAudioActive,
     localVolume,
     isLocalSpeaking,
     hasCameraHardware,
@@ -212,6 +213,7 @@ export default function App() {
         isAudioMuted,
         isVideoMuted,
         isScreenSharing,
+        isScreenAudioActive,
         volumeLevel: localVolume,
         isSpeaking: isLocalSpeaking,
       };
@@ -231,6 +233,7 @@ export default function App() {
     isAudioMuted,
     isVideoMuted,
     isScreenSharing,
+    isScreenAudioActive,
     localVolume,
     isLocalSpeaking,
     remotePeers,
@@ -275,6 +278,7 @@ export default function App() {
                     isAudioMuted={pinnedPeer.isAudioMuted}
                     isVideoMuted={pinnedPeer.isVideoMuted}
                     isScreenSharing={pinnedPeer.isScreenSharing}
+                    isScreenAudioActive={pinnedPeer.isScreenAudioActive}
                     volumeLevel={pinnedPeer.volumeLevel}
                     isSpeaking={pinnedPeer.isSpeaking}
                     isPinned={true}
@@ -295,6 +299,7 @@ export default function App() {
                         isAudioMuted={isAudioMuted}
                         isVideoMuted={isVideoMuted}
                         isScreenSharing={isScreenSharing}
+                        isScreenAudioActive={isScreenAudioActive}
                         volumeLevel={localVolume}
                         isSpeaking={isLocalSpeaking}
                         isMirror={deviceSettings.isMirrorMode}
@@ -315,6 +320,7 @@ export default function App() {
                           isAudioMuted={peer.isAudioMuted}
                           isVideoMuted={peer.isVideoMuted}
                           isScreenSharing={peer.isScreenSharing}
+                          isScreenAudioActive={peer.isScreenAudioActive}
                           volumeLevel={peer.volumeLevel}
                           isSpeaking={peer.isSpeaking}
                           onTogglePin={() => setPinnedPeerId(peer.id)}
@@ -334,6 +340,7 @@ export default function App() {
                   isAudioMuted={isAudioMuted}
                   isVideoMuted={isVideoMuted}
                   isScreenSharing={isScreenSharing}
+                  isScreenAudioActive={isScreenAudioActive}
                   volumeLevel={localVolume}
                   isSpeaking={isLocalSpeaking}
                   isPinned={pinnedPeerId === 'local'}
@@ -354,6 +361,7 @@ export default function App() {
                     isAudioMuted={peer.isAudioMuted}
                     isVideoMuted={peer.isVideoMuted}
                     isScreenSharing={peer.isScreenSharing}
+                    isScreenAudioActive={peer.isScreenAudioActive}
                     volumeLevel={peer.volumeLevel}
                     isSpeaking={peer.isSpeaking}
                     isPinned={pinnedPeerId === peer.id}
@@ -375,6 +383,7 @@ export default function App() {
           isAudioMuted={isAudioMuted}
           isVideoMuted={isVideoMuted}
           isScreenSharing={isScreenSharing}
+          isScreenAudioActive={isScreenAudioActive}
           layoutMode={layoutMode}
           unreadChatCount={unreadChatCount}
           hasCameraHardware={hasCameraHardware}

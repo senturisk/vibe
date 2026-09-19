@@ -21,6 +21,7 @@ interface ControlsBarProps {
   isAudioMuted: boolean;
   isVideoMuted: boolean;
   isScreenSharing: boolean;
+  isScreenAudioActive?: boolean;
   layoutMode: LayoutMode;
   unreadChatCount: number;
   hasCameraHardware: boolean;
@@ -41,6 +42,7 @@ export const ControlsBar: React.FC<ControlsBarProps> = ({
   isAudioMuted,
   isVideoMuted,
   isScreenSharing,
+  isScreenAudioActive = false,
   layoutMode,
   unreadChatCount,
   hasCameraHardware,
@@ -243,21 +245,37 @@ export const ControlsBar: React.FC<ControlsBarProps> = ({
         </div>
 
         {/* Screen Share Button */}
-        <button
-          onClick={onToggleScreenShare}
-          title={isScreenSharing ? 'Stop Screen Sharing' : 'Share Screen'}
-          className={`flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-full transition-all active:scale-95 ${
-            isScreenSharing
-              ? 'bg-[#6750A4] dark:bg-[#D0BCFF] text-white dark:text-[#381E72] shadow-md animate-pulse'
-              : 'bg-[#F3EDF7] dark:bg-[#2B2831] text-[#49454F] dark:text-[#CAC4D0] hover:bg-[#EADDFF] dark:hover:bg-[#4F378B] hover:text-[#21005D] dark:hover:text-[#EADDFF]'
-          }`}
-        >
-          {isScreenSharing ? (
-            <MonitorOff className="w-5 h-5" />
-          ) : (
-            <Monitor className="w-5 h-5" />
+        <div className="relative">
+          <button
+            onClick={onToggleScreenShare}
+            title={
+              isScreenSharing
+                ? isScreenAudioActive
+                  ? 'Stop Screen Sharing (In-Screen Audio is being shared)'
+                  : 'Stop Screen Sharing'
+                : 'Share Screen'
+            }
+            className={`flex items-center justify-center w-11 h-11 sm:w-12 sm:h-12 rounded-full transition-all active:scale-95 ${
+              isScreenSharing
+                ? 'bg-[#6750A4] dark:bg-[#D0BCFF] text-white dark:text-[#381E72] shadow-md animate-pulse'
+                : 'bg-[#F3EDF7] dark:bg-[#2B2831] text-[#49454F] dark:text-[#CAC4D0] hover:bg-[#EADDFF] dark:hover:bg-[#4F378B] hover:text-[#21005D] dark:hover:text-[#EADDFF]'
+            }`}
+          >
+            {isScreenSharing ? (
+              <MonitorOff className="w-5 h-5" />
+            ) : (
+              <Monitor className="w-5 h-5" />
+            )}
+          </button>
+          {isScreenSharing && isScreenAudioActive && (
+            <span
+              className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#7429B6] dark:bg-[#4F378B] text-[9px] font-bold text-white shadow"
+              title="Screen Audio Active"
+            >
+              ♪
+            </span>
           )}
-        </button>
+        </div>
 
         {/* Divider */}
         <div className="w-[1px] h-6 bg-[#CAC4D0] dark:bg-[#49454F] mx-0.5" />

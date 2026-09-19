@@ -4,6 +4,7 @@ export interface ParticipantInfo {
   isAudioMuted: boolean;
   isVideoMuted: boolean;
   isScreenSharing: boolean;
+  isScreenAudioActive?: boolean;
   isSpeaking?: boolean;
   volumeLevel?: number; // 0 - 100
 }
@@ -15,6 +16,7 @@ export interface RemotePeer {
   isAudioMuted: boolean;
   isVideoMuted: boolean;
   isScreenSharing: boolean;
+  isScreenAudioActive?: boolean;
   volumeLevel: number;
   isSpeaking: boolean;
 }
