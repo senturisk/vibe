@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Mic, MicOff, Monitor, Maximize2, Minimize2, PictureInPicture2, Pin, PinOff, User, Volume2 } from 'lucide-react';
+import { Mic, MicOff, Monitor, Maximize2, Minimize2, PictureInPicture2, Pin, PinOff, User, Volume2, VideoOff } from 'lucide-react';
 
 interface VideoTileProps {
   stream?: MediaStream;
@@ -91,7 +91,7 @@ export const VideoTile: React.FC<VideoTileProps> = ({
   // During screen sharing, the screen video track is active even when user's camera is turned off
   const showVideo =
     (isScreenSharing || !isVideoMuted) &&
-    Boolean(stream && stream.getVideoTracks().some((t) => t.enabled));
+    Boolean(stream && stream.getVideoTracks().some((t) => t.enabled && t.readyState !== 'ended'));
 
   return (
     <div
@@ -144,7 +144,7 @@ export const VideoTile: React.FC<VideoTileProps> = ({
 
       {/* Screen Sharing Watermark / Badge */}
       {isScreenSharing && (
-        <div className="absolute top-3 left-3 flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#6750A4]/90 backdrop-blur-md text-white text-xs font-semibold shadow-md">
+        <div className="absolute top-2.5 sm:top-3 left-2.5 sm:left-3 flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#6750A4]/90 backdrop-blur-md text-white text-xs font-semibold shadow-md z-10">
           <Monitor className="w-3.5 h-3.5 animate-pulse text-[#EADDFF]" />
           <span>Screen Share</span>
           {isScreenAudioActive && (
@@ -156,8 +156,8 @@ export const VideoTile: React.FC<VideoTileProps> = ({
         </div>
       )}
 
-      {/* Top Right Quick Controls on Hover */}
-      <div className="absolute top-3 right-3 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity bg-black/40 backdrop-blur-md p-1 rounded-full text-white">
+      {/* Top Right Quick Controls - Always visible on mobile, reveal on hover for desktop */}
+      <div className="absolute top-2.5 sm:top-3 right-2.5 sm:right-3 flex items-center gap-1 sm:gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100 transition-opacity bg-black/50 sm:bg-black/40 backdrop-blur-md p-1 rounded-full text-white z-20">
         {onTogglePin && (
           <button
             onClick={onTogglePin}
@@ -188,8 +188,8 @@ export const VideoTile: React.FC<VideoTileProps> = ({
       </div>
 
       {/* Bottom Information Pill (Name + Volume Indicator + Mic State) */}
-      <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between pointer-events-none">
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-md text-white text-xs font-medium max-w-[80%] truncate">
+      <div className="absolute bottom-2.5 sm:bottom-3 left-2.5 sm:left-3 right-2.5 sm:right-3 flex items-center justify-between pointer-events-none z-10">
+        <div className="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-black/60 backdrop-blur-md text-white text-[11px] sm:text-xs font-medium max-w-[75%] sm:max-w-[80%] truncate">
           <span className="truncate">{name} {isLocal && '(You)'}</span>
 
           {/* Real-time Voice / Screen Volume Indicator Bars */}
@@ -227,21 +227,34 @@ export const VideoTile: React.FC<VideoTileProps> = ({
           )}
         </div>
 
-        {/* Mic status badge on right if muted */}
-        {isAudioMuted && (
-          <div
-            className={`px-2.5 py-1 rounded-full backdrop-blur-sm text-white text-[11px] font-medium flex items-center gap-1 shadow-sm ${
-              isScreenAudioActive
-                ? 'bg-[#4F378B]/90 border border-[#D0BCFF]/30 text-[#EADDFF]'
-                : 'bg-rose-600/90'
-            }`}
-          >
-            <MicOff className="w-3 h-3" />
-            <span className="hidden sm:inline">
-              {isScreenAudioActive ? 'Mic Muted • Screen Audio On' : 'Muted'}
-            </span>
-          </div>
-        )}
+        {/* Real-time Status Badges (Mic / Cam Muted) */}
+        <div className="flex items-center gap-1 sm:gap-1.5">
+          {isVideoMuted && !isScreenSharing && (
+            <div
+              className="p-1 sm:px-2.5 sm:py-1 rounded-full backdrop-blur-sm bg-rose-600/90 text-white text-[11px] font-medium flex items-center gap-1 shadow-sm"
+              title="Camera off"
+            >
+              <VideoOff className="w-3 h-3" />
+              <span className="hidden sm:inline">Cam Off</span>
+            </div>
+          )}
+
+          {isAudioMuted && (
+            <div
+              className={`p-1 sm:px-2.5 sm:py-1 rounded-full backdrop-blur-sm text-white text-[11px] font-medium flex items-center gap-1 shadow-sm ${
+                isScreenAudioActive
+                  ? 'bg-[#4F378B]/90 border border-[#D0BCFF]/30 text-[#EADDFF]'
+                  : 'bg-rose-600/90'
+              }`}
+              title={isScreenAudioActive ? 'Mic Muted • Screen Audio On' : 'Microphone Muted'}
+            >
+              <MicOff className="w-3 h-3" />
+              <span className="hidden sm:inline">
+                {isScreenAudioActive ? 'Screen Audio' : 'Muted'}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -12,11 +12,13 @@ import {
 } from 'lucide-react';
 import { generate4DigitCode, generateRoomId } from '../utils/mediaUtils';
 import { createAudioMeter } from '../utils/audioAnalyser';
+import { DeviceSettings } from '../types';
 
 interface LobbyProps {
   initialRoomId: string;
   onJoinRoom: (roomId: string, name: string, audioMuted: boolean, videoMuted: boolean) => void;
   onOpenSettings: () => void;
+  deviceSettings?: DeviceSettings;
 }
 
 function getUrlRoom(): string {
@@ -35,6 +37,7 @@ export const Lobby: React.FC<LobbyProps> = ({
   initialRoomId,
   onJoinRoom,
   onOpenSettings,
+  deviceSettings,
 }) => {
   // Display name state, pre-seeded with a random 4-digit alphanumeric code
   const [displayName, setDisplayName] = useState(() => generate4DigitCode());
@@ -65,15 +68,32 @@ export const Lobby: React.FC<LobbyProps> = ({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioCleanupRef = useRef<(() => void) | null>(null);
 
-  // Initialize preview stream with graceful fallback
+  // Initialize preview stream with graceful fallback and respect selected devices
   useEffect(() => {
     let active = true;
 
     async function setupPreview() {
       try {
+        const videoConstraints: MediaTrackConstraints = {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'user',
+        };
+        if (deviceSettings?.videoInputId && deviceSettings.videoInputId !== 'default') {
+          videoConstraints.deviceId = { ideal: deviceSettings.videoInputId };
+        }
+
+        const audioConstraints: MediaTrackConstraints = {
+          echoCancellation: true,
+          noiseSuppression: true,
+        };
+        if (deviceSettings?.audioInputId && deviceSettings.audioInputId !== 'default') {
+          audioConstraints.deviceId = { ideal: deviceSettings.audioInputId };
+        }
+
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
-          audio: { echoCancellation: true, noiseSuppression: true },
+          video: videoConstraints,
+          audio: audioConstraints,
         });
 
         if (!active) {
@@ -87,6 +107,7 @@ export const Lobby: React.FC<LobbyProps> = ({
 
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => {});
         }
 
         // Attach audio meter
@@ -98,7 +119,14 @@ export const Lobby: React.FC<LobbyProps> = ({
 
         // Try audio only
         try {
-          const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          const audioConstraints: MediaTrackConstraints = {
+            echoCancellation: true,
+            noiseSuppression: true,
+          };
+          if (deviceSettings?.audioInputId && deviceSettings.audioInputId !== 'default') {
+            audioConstraints.deviceId = { ideal: deviceSettings.audioInputId };
+          }
+          const audioStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints });
           if (!active) {
             audioStream.getTracks().forEach((t) => t.stop());
             return;
@@ -127,12 +155,13 @@ export const Lobby: React.FC<LobbyProps> = ({
       active = false;
       if (audioCleanupRef.current) {
         audioCleanupRef.current();
+        audioCleanupRef.current = null;
       }
       if (previewStream) {
         previewStream.getTracks().forEach((t) => t.stop());
       }
     };
-  }, []);
+  }, [deviceSettings?.videoInputId, deviceSettings?.audioInputId]);
 
   // Update track enabled state on mute changes
   useEffect(() => {

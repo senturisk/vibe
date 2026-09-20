@@ -38,6 +38,10 @@ export const DeviceSettingsModal: React.FC<DeviceSettingsModalProps> = ({
     }
     if (isOpen) {
       getDevices();
+      navigator.mediaDevices?.addEventListener?.('devicechange', getDevices);
+      return () => {
+        navigator.mediaDevices?.removeEventListener?.('devicechange', getDevices);
+      };
     }
   }, [isOpen]);
 
@@ -117,7 +121,7 @@ export const DeviceSettingsModal: React.FC<DeviceSettingsModalProps> = ({
               Microphone
             </label>
             <select
-              value={currentSettings.audioInputId}
+              value={currentSettings.audioInputId || ''}
               onChange={(e) => {
                 const id = e.target.value;
                 onUpdateSettings({ ...currentSettings, audioInputId: id });
@@ -125,7 +129,7 @@ export const DeviceSettingsModal: React.FC<DeviceSettingsModalProps> = ({
               }}
               className="w-full px-3.5 py-2.5 rounded-2xl bg-[#F3EDF7] dark:bg-[#2B2831] border border-[#CAC4D0]/60 dark:border-[#49454F] text-xs text-[#1D1B20] dark:text-[#E6E0E9] focus:outline-none focus:ring-2 focus:ring-[#6750A4] dark:focus:ring-[#D0BCFF]"
             >
-              {audioInputs.length === 0 && <option value="">Default Microphone</option>}
+              <option value="">Default / System Preferred Microphone</option>
               {audioInputs.map((d, idx) => (
                 <option key={d.deviceId || idx} value={d.deviceId}>
                   {d.label || `Microphone ${idx + 1}`}
@@ -152,7 +156,7 @@ export const DeviceSettingsModal: React.FC<DeviceSettingsModalProps> = ({
               Camera
             </label>
             <select
-              value={currentSettings.videoInputId}
+              value={currentSettings.videoInputId || ''}
               onChange={(e) => {
                 const id = e.target.value;
                 onUpdateSettings({ ...currentSettings, videoInputId: id });
@@ -160,7 +164,7 @@ export const DeviceSettingsModal: React.FC<DeviceSettingsModalProps> = ({
               }}
               className="w-full px-3.5 py-2.5 rounded-2xl bg-[#F3EDF7] dark:bg-[#2B2831] border border-[#CAC4D0]/60 dark:border-[#49454F] text-xs text-[#1D1B20] dark:text-[#E6E0E9] focus:outline-none focus:ring-2 focus:ring-[#6750A4] dark:focus:ring-[#D0BCFF]"
             >
-              {videoInputs.length === 0 && <option value="">Default Camera</option>}
+              <option value="">Default / System Preferred Camera</option>
               {videoInputs.map((d, idx) => (
                 <option key={d.deviceId || idx} value={d.deviceId}>
                   {d.label || `Camera ${idx + 1}`}
@@ -177,12 +181,22 @@ export const DeviceSettingsModal: React.FC<DeviceSettingsModalProps> = ({
                 Speaker / Audio Output
               </label>
               <select
-                value={currentSettings.audioOutputId}
+                value={currentSettings.audioOutputId || ''}
                 onChange={(e) => {
-                  onUpdateSettings({ ...currentSettings, audioOutputId: e.target.value });
+                  const id = e.target.value;
+                  onUpdateSettings({ ...currentSettings, audioOutputId: id });
+                  if (typeof HTMLMediaElement !== 'undefined' && 'setSinkId' in HTMLMediaElement.prototype) {
+                    document.querySelectorAll('audio, video').forEach((el) => {
+                      const mediaEl = el as HTMLMediaElement & { setSinkId?: (sinkId: string) => Promise<void> };
+                      if (typeof mediaEl.setSinkId === 'function') {
+                        mediaEl.setSinkId(id).catch(console.warn);
+                      }
+                    });
+                  }
                 }}
                 className="w-full px-3.5 py-2.5 rounded-2xl bg-[#F3EDF7] dark:bg-[#2B2831] border border-[#CAC4D0]/60 dark:border-[#49454F] text-xs text-[#1D1B20] dark:text-[#E6E0E9] focus:outline-none focus:ring-2 focus:ring-[#6750A4] dark:focus:ring-[#D0BCFF]"
               >
+                <option value="">Default / System Preferred Speaker</option>
                 {audioOutputs.map((d, idx) => (
                   <option key={d.deviceId || idx} value={d.deviceId}>
                     {d.label || `Speaker ${idx + 1}`}

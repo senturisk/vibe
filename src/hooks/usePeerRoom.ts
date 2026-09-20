@@ -10,6 +10,8 @@ interface UsePeerRoomProps {
   userName: string;
   initialAudioMuted?: boolean;
   initialVideoMuted?: boolean;
+  audioInputId?: string;
+  videoInputId?: string;
 }
 
 interface PeerMessage {
@@ -29,6 +31,8 @@ export function usePeerRoom({
   userName,
   initialAudioMuted = false,
   initialVideoMuted = false,
+  audioInputId = '',
+  videoInputId = '',
 }: UsePeerRoomProps) {
   const [peerId, setPeerId] = useState<string>('');
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
@@ -80,10 +84,19 @@ export function usePeerRoom({
 
   // Initialize local media
   useEffect(() => {
+    if (!roomId.trim()) {
+      // If no room is active, ensure local media is stopped
+      if (localStream) {
+        localStream.getTracks().forEach((t) => t.stop());
+        setLocalStream(null);
+      }
+      return;
+    }
+
     let mounted = true;
 
     async function initMedia() {
-      const res = await acquireUserMedia();
+      const res = await acquireUserMedia(videoInputId, audioInputId);
       if (!mounted) return;
 
       setLocalStream(res.stream);
@@ -118,8 +131,16 @@ export function usePeerRoom({
       if (localAudioCleanupRef.current) {
         localAudioCleanupRef.current();
       }
+      if (cameraTrackRef.current) {
+        cameraTrackRef.current.stop();
+        cameraTrackRef.current = null;
+      }
+      if (micTrackRef.current) {
+        micTrackRef.current.stop();
+        micTrackRef.current = null;
+      }
     };
-  }, [initialAudioMuted, initialVideoMuted]);
+  }, [roomId, initialAudioMuted, initialVideoMuted, videoInputId, audioInputId]);
 
   // Hook up remote audio meter
   const attachRemoteAudioMeter = useCallback((remoteId: string, stream: MediaStream) => {
@@ -310,7 +331,7 @@ export function usePeerRoom({
 
   // Connect PeerJS client to default public broker
   useEffect(() => {
-    if (!localStream) return;
+    if (!localStream || !roomId.trim()) return;
 
     let isDestroyed = false;
     const cleanRoom = roomId.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
@@ -699,77 +720,163 @@ export function usePeerRoom({
 
   // Switch video input device (Camera)
   const switchCameraDevice = useCallback(async (deviceId: string) => {
-    if (!localStream) return;
     try {
-      const newStream = await navigator.mediaDevices.getUserMedia({
-        video: { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false,
-      });
+      const videoConstraints: MediaTrackConstraints = {
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      };
+      if (deviceId && deviceId !== 'default') {
+        videoConstraints.deviceId = { ideal: deviceId };
+      }
 
-      const newTrack = newStream.getVideoTracks()[0];
+      let newStream: MediaStream | null = null;
+      try {
+        if (deviceId && deviceId !== 'default') {
+          newStream = await navigator.mediaDevices.getUserMedia({
+            video: { ...videoConstraints, deviceId: { exact: deviceId } },
+            audio: false,
+          });
+        } else {
+          newStream = await navigator.mediaDevices.getUserMedia({
+            video: videoConstraints,
+            audio: false,
+          });
+        }
+      } catch (err: unknown) {
+        console.warn('Exact camera constraint failed, attempting ideal/busy recovery:', err);
+        const errName = (err as { name?: string })?.name;
+        // On hardware where the camera driver locks the camera and cannot open a second stream:
+        if (errName === 'NotReadableError' || errName === 'TrackStartError') {
+          if (cameraTrackRef.current && cameraTrackRef.current !== screenTrackRef.current) {
+            cameraTrackRef.current.stop();
+          }
+        }
+        newStream = await navigator.mediaDevices.getUserMedia({
+          video: videoConstraints,
+          audio: false,
+        });
+      }
+
+      const newTrack = newStream?.getVideoTracks()[0];
       if (!newTrack) return;
 
+      // Safely stop previous camera track
+      if (cameraTrackRef.current && cameraTrackRef.current !== newTrack && cameraTrackRef.current !== screenTrackRef.current) {
+        cameraTrackRef.current.stop();
+      }
       cameraTrackRef.current = newTrack;
 
-      // If not currently screen sharing, replace the video sender track immediately
       if (!isScreenSharing) {
+        newTrack.enabled = !isVideoMuted;
+
+        // Replace track on all active peer connections
         activeCallsRef.current.forEach((call) => {
-          const senders = call.peerConnection?.getSenders() || [];
-          const videoSender = senders.find((s) => s.track && s.track.kind === 'video');
+          const pc = call.peerConnection;
+          if (!pc) return;
+          const transceivers = pc.getTransceivers ? pc.getTransceivers() : [];
+          const videoTransceiver = transceivers.find(
+            (t) => (t.sender && t.sender.track?.kind === 'video') || (t.receiver && t.receiver.track?.kind === 'video')
+          );
+          const videoSender =
+            videoTransceiver?.sender ||
+            pc.getSenders().find((s) => s.track && s.track.kind === 'video');
+
           if (videoSender) {
-            videoSender.replaceTrack(newTrack).catch(console.error);
+            videoSender.replaceTrack(newTrack).catch((e) => {
+              console.warn('replaceTrack video failed:', e);
+            });
           }
         });
 
-        const currentVideo = localStream.getVideoTracks()[0];
-        if (currentVideo) {
-          currentVideo.stop();
-          localStream.removeTrack(currentVideo);
-        }
-        localStream.addTrack(newTrack);
-        newTrack.enabled = !isVideoMuted;
+        // Update localStream with a fresh MediaStream instance so React updates bindings
+        setLocalStream((prev) => {
+          const audioTracks = prev ? prev.getAudioTracks() : [];
+          return new MediaStream([...audioTracks, newTrack]);
+        });
       } else {
-        // While screen sharing, camera is kept off
+        // While screen sharing is active, camera is kept off
         newTrack.enabled = false;
       }
     } catch (err) {
-      console.error('Failed to switch camera:', err);
+      console.error('Failed to switch camera device:', err);
     }
-  }, [localStream, isScreenSharing, isVideoMuted]);
+  }, [isScreenSharing, isVideoMuted]);
 
   // Switch audio input device (Microphone)
   const switchMicrophoneDevice = useCallback(async (deviceId: string) => {
-    if (!localStream) return;
     try {
-      const newStream = await navigator.mediaDevices.getUserMedia({
-        audio: { deviceId: { exact: deviceId }, echoCancellation: true, noiseSuppression: true },
-        video: false,
-      });
+      const audioConstraints: MediaTrackConstraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      };
+      if (deviceId && deviceId !== 'default') {
+        audioConstraints.deviceId = { ideal: deviceId };
+      }
 
-      const newTrack = newStream.getAudioTracks()[0];
+      let newStream: MediaStream | null = null;
+      try {
+        if (deviceId && deviceId !== 'default') {
+          newStream = await navigator.mediaDevices.getUserMedia({
+            audio: { ...audioConstraints, deviceId: { exact: deviceId } },
+            video: false,
+          });
+        } else {
+          newStream = await navigator.mediaDevices.getUserMedia({
+            audio: audioConstraints,
+            video: false,
+          });
+        }
+      } catch (err: unknown) {
+        console.warn('Exact microphone constraint failed, attempting ideal/busy recovery:', err);
+        const errName = (err as { name?: string })?.name;
+        if (errName === 'NotReadableError' || errName === 'TrackStartError') {
+          if (micTrackRef.current) {
+            micTrackRef.current.stop();
+          }
+        }
+        newStream = await navigator.mediaDevices.getUserMedia({
+          audio: audioConstraints,
+          video: false,
+        });
+      }
+
+      const newTrack = newStream?.getAudioTracks()[0];
       if (!newTrack) return;
 
+      if (micTrackRef.current && micTrackRef.current !== newTrack) {
+        micTrackRef.current.stop();
+      }
       micTrackRef.current = newTrack;
+      newTrack.enabled = !isAudioMuted;
 
       // If screen audio mixer is running, update the mixer with the new microphone source
       if (screenAudioMixerRef.current) {
         screenAudioMixerRef.current.updateMicTrack(newTrack, isAudioMuted);
       } else {
         activeCallsRef.current.forEach((call) => {
-          const senders = call.peerConnection?.getSenders() || [];
-          const audioSender = senders.find((s) => s.track && s.track.kind === 'audio');
+          const pc = call.peerConnection;
+          if (!pc) return;
+          const transceivers = pc.getTransceivers ? pc.getTransceivers() : [];
+          const audioTransceiver = transceivers.find(
+            (t) => (t.sender && t.sender.track?.kind === 'audio') || (t.receiver && t.receiver.track?.kind === 'audio')
+          );
+          const audioSender =
+            audioTransceiver?.sender ||
+            pc.getSenders().find((s) => s.track && s.track.kind === 'audio');
+
           if (audioSender) {
-            audioSender.replaceTrack(newTrack).catch(console.error);
+            audioSender.replaceTrack(newTrack).catch((e) => {
+              console.warn('replaceTrack audio failed:', e);
+            });
           }
         });
 
-        const currentAudio = localStream.getAudioTracks()[0];
-        if (currentAudio) {
-          currentAudio.stop();
-          localStream.removeTrack(currentAudio);
-        }
-        localStream.addTrack(newTrack);
-        newTrack.enabled = !isAudioMuted;
+        // Update localStream with a fresh MediaStream instance
+        setLocalStream((prev) => {
+          const videoTracks = prev ? prev.getVideoTracks() : [];
+          return new MediaStream([newTrack, ...videoTracks]);
+        });
       }
 
       // Re-attach audio meter for local stream
@@ -781,9 +888,9 @@ export function usePeerRoom({
         setIsLocalSpeaking(isSpeaking);
       });
     } catch (err) {
-      console.error('Failed to switch microphone:', err);
+      console.error('Failed to switch microphone device:', err);
     }
-  }, [localStream, isAudioMuted]);
+  }, [isAudioMuted]);
 
   // Send a chat message
   const sendChatMessage = useCallback((text: string) => {

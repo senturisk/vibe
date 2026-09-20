@@ -4,7 +4,7 @@
  * Material You 3 Design & PeerJS WebRTC
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { Lobby } from './components/Lobby';
@@ -129,11 +129,28 @@ export default function App() {
     switchMicrophoneDevice,
     sendChatMessage,
   } = usePeerRoom({
-    roomId: activeRoomId,
+    roomId: inRoom ? activeRoomId : '',
     userName: activeUserName,
     initialAudioMuted,
     initialVideoMuted,
+    audioInputId: deviceSettings.audioInputId,
+    videoInputId: deviceSettings.videoInputId,
   });
+
+  // Unified camera and microphone switching callbacks
+  const handleSwitchCamera = useCallback(async (deviceId: string) => {
+    setDeviceSettings((prev) => ({ ...prev, videoInputId: deviceId }));
+    if (inRoom) {
+      await switchCameraDevice(deviceId);
+    }
+  }, [inRoom, switchCameraDevice]);
+
+  const handleSwitchMicrophone = useCallback(async (deviceId: string) => {
+    setDeviceSettings((prev) => ({ ...prev, audioInputId: deviceId }));
+    if (inRoom) {
+      await switchMicrophoneDevice(deviceId);
+    }
+  }, [inRoom, switchMicrophoneDevice]);
 
   // Track unread chat messages when drawer is closed
   useEffect(() => {
@@ -262,6 +279,7 @@ export default function App() {
             initialRoomId={urlRoomId}
             onJoinRoom={handleJoinRoom}
             onOpenSettings={() => setIsSettingsModalOpen(true)}
+            deviceSettings={deviceSettings}
           />
         ) : (
           /* In-Room Video Session */
@@ -388,6 +406,8 @@ export default function App() {
           unreadChatCount={unreadChatCount}
           hasCameraHardware={hasCameraHardware}
           hasMicHardware={hasMicHardware}
+          selectedAudioId={deviceSettings.audioInputId}
+          selectedVideoId={deviceSettings.videoInputId}
           onToggleAudio={toggleAudio}
           onToggleVideo={toggleVideo}
           onToggleScreenShare={toggleScreenShare}
@@ -401,8 +421,8 @@ export default function App() {
           onOpenSettings={() => setIsSettingsModalOpen(true)}
           onOpenShare={() => setIsShareModalOpen(true)}
           onLeaveRoom={handleLeaveRoom}
-          onSwitchCamera={switchCameraDevice}
-          onSwitchMicrophone={switchMicrophoneDevice}
+          onSwitchCamera={handleSwitchCamera}
+          onSwitchMicrophone={handleSwitchMicrophone}
         />
       )}
 
@@ -429,8 +449,8 @@ export default function App() {
         currentSettings={deviceSettings}
         onUpdateSettings={setDeviceSettings}
         currentVolume={localVolume}
-        onSwitchCamera={switchCameraDevice}
-        onSwitchMicrophone={switchMicrophoneDevice}
+        onSwitchCamera={handleSwitchCamera}
+        onSwitchMicrophone={handleSwitchMicrophone}
       />
 
       {/* Footer with Senturisk Copyright */}

@@ -65,13 +65,23 @@ export async function acquireUserMedia(preferredVideoId?: string, preferredAudio
   let audioError: string | undefined;
   let videoError: string | undefined;
 
-  const audioConstraints: boolean | MediaTrackConstraints = preferredAudioId
-    ? { deviceId: { exact: preferredAudioId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-    : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+  const audioConstraints: MediaTrackConstraints = {
+    echoCancellation: true,
+    noiseSuppression: true,
+    autoGainControl: true,
+  };
+  if (preferredAudioId && preferredAudioId !== 'default') {
+    audioConstraints.deviceId = { ideal: preferredAudioId };
+  }
 
-  const videoConstraints: boolean | MediaTrackConstraints = preferredVideoId
-    ? { deviceId: { exact: preferredVideoId }, width: { ideal: 1280 }, height: { ideal: 720 } }
-    : { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' };
+  const videoConstraints: MediaTrackConstraints = {
+    width: { ideal: 1280 },
+    height: { ideal: 720 },
+    facingMode: 'user',
+  };
+  if (preferredVideoId && preferredVideoId !== 'default') {
+    videoConstraints.deviceId = { ideal: preferredVideoId };
+  }
 
   // 1. Try full Audio + Video
   try {

@@ -55,7 +55,7 @@ export const Header: React.FC<HeaderProps> = ({
               </span>
             </div>
             <p className="text-[11px] text-[#49454F] dark:text-[#CAC4D0] hidden sm:block">
-              P2P Video-Voice Chat
+              VC Watch Parties
             </p>
           </div>
         </div>
